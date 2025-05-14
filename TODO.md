@@ -1,4 +1,4 @@
-# TODO – Sheeter Implementation Plan
+# TODO – Sheet Implementation Plan
 
 ## ✅ Phase 1: MVP Setup
 

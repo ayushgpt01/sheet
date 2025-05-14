@@ -1,6 +1,6 @@
-# Sheeter – A Google Sheets-like Spreadsheet - WIP
+# Sheet – A Google Sheets-like Spreadsheet - WIP
 
-**Sheeter** is a high-performance, modern web-based spreadsheet application inspired by Google Sheets, built from scratch to deeply understand the architecture, performance, and complexity behind such real-time collaborative tools.
+**Sheet** is a high-performance, modern web-based spreadsheet application inspired by Google Sheets, built from scratch to deeply understand the architecture, performance, and complexity behind such real-time collaborative tools.
 
 ## Purpose
 
