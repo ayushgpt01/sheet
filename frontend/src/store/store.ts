@@ -1,27 +1,26 @@
-import { create, type StateCreator } from "zustand";
-import { devtools, persist } from "zustand/middleware";
+import { create } from "zustand";
+import { devtools } from "zustand/middleware";
+import { immer } from "zustand/middleware/immer";
 
 interface SheetState {
-  bears: number;
-  increase: (by: number) => void;
+  sheet: string[][];
+  createSheet: (cols: number, rows: number) => void;
+  updateValue: (val: string, colIdx: number, rowIdx: number) => void;
 }
 
-const createSheetSlice: StateCreator<SheetState, [], [], SheetState> = (
-  set
-) => ({
-  bears: 0,
-  increase: (by) => set((state) => ({ bears: state.bears + by })),
-});
-
-export type StoreState = SheetState;
-
-export const useSheetStore = create<StoreState>()(
+export const useSheetStore = create<SheetState>()(
   devtools(
-    persist(
-      (...a) => ({
-        ...createSheetSlice(...a),
-      }),
-      { name: "sheetStore" }
-    )
+    immer((set) => ({
+      sheet: [[]],
+      createSheet: (cols, rows) =>
+        set((state) => {
+          state.sheet = Array(cols).fill(Array(rows).fill(""));
+        }),
+      updateValue: (val, colIdx, rowIdx) =>
+        set((state) => {
+          if (!state.sheet[colIdx]) state.sheet[colIdx] = [];
+          state.sheet[colIdx][rowIdx] = val;
+        }),
+    }))
   )
 );

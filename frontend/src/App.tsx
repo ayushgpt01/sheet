@@ -1,15 +1,13 @@
-import Editor from "@/editor/Editor";
+import Sheet from "@/components/Sheet";
 import Toolbar from "@/components/Toolbar";
 import SheetsList from "@/components/SheetsList";
 
-function App() {
+export default function App() {
   return (
     <main className='h-screen'>
       <Toolbar />
-      <Editor />
+      <Sheet />
       <SheetsList />
     </main>
   );
 }
-
-export default App;

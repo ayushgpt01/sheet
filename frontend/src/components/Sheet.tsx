@@ -1,6 +1,13 @@
-import { Fragment, useMemo } from "react";
+import Cell from "@/components/Cell";
+import { useSheetStore } from "@/store/store";
+import { Fragment, useEffect, useMemo } from "react";
 
 const getColumnLetter = (colIndex: number) => {
+  const alpahbets = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  if (colIndex < 26) {
+    return alpahbets[colIndex];
+  }
+
   let temp,
     letter = "";
   while (colIndex >= 0) {
@@ -11,7 +18,14 @@ const getColumnLetter = (colIndex: number) => {
   return letter;
 };
 
-export default function Editor({ numRows = 100, numCols = 26 }) {
+export default function Sheet({ numRows = 10, numCols = 10 }) {
+  const create = useSheetStore((s) => s.createSheet);
+
+  useEffect(() => {
+    create(numCols, numRows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const columnHeaders = useMemo(() => {
     return Array.from({ length: numCols }, (_, i) => getColumnLetter(i));
   }, [numCols]);
@@ -32,14 +46,14 @@ export default function Editor({ numRows = 100, numCols = 26 }) {
     >
       <div className='grid relative' style={gridStyle}>
         <div
-          className='sticky top-0 left-0 z-30 bg-gray-200 border-r border-b
-          border-gray-300 w-[95px] text-center font-semibold p-2'
+          className='sticky top-0 left-0 z-30 bg-white border-r border-b
+          border-gray-300 w-[95px] text-center p-2'
         ></div>
 
         {columnHeaders.map((letter, colIdx) => (
           <div
             key={`col-header-${colIdx}`}
-            className='sticky top-0 z-20 bg-white text-center font-semibold
+            className='sticky top-0 z-20 bg-white text-center 
             border-r border-b border-gray-300 flex items-center p-2
             justify-center'
           >
@@ -51,25 +65,18 @@ export default function Editor({ numRows = 100, numCols = 26 }) {
           <Fragment key={`row-${rowIdx}`}>
             <div
               className='sticky left-0 z-10 bg-white text-center p-2
-              font-semibold border-r border-b border-gray-300 min-w-[93.8px] flex 
+              border-r border-b border-gray-300 min-w-[93.8px] flex 
               items-center justify-center'
             >
               {rowNum}
             </div>
 
             {columnHeaders.map((_, colIdx) => (
-              <div
+              <Cell
                 key={`cell-${rowIdx}-${colIdx}`}
-                className='bg-white border-r border-b border-gray-300 
-                text-center flex items-center justify-center overflow-hidden'
-              >
-                {/* <input
-                  type='text'
-                  className='w-full h-full p-[5px] box-border text-sm outline-none 
-                  focus:ring-2 focus:ring-blue-500 focus:border-transparent'
-                  aria-label={`Cell ${columnHeaders[colIdx]}${rowNum}`}
-                /> */}
-              </div>
+                rowIdx={rowIdx}
+                colIdx={colIdx}
+              />
             ))}
           </Fragment>
         ))}
