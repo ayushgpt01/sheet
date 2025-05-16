@@ -1,5 +1,4 @@
 import { useSheetStore } from "@/store/store";
-import { useEffect } from "react";
 
 export default function Cell({
   colIdx,
@@ -8,17 +7,9 @@ export default function Cell({
   rowIdx: number;
   colIdx: number;
 }) {
-  const data = useSheetStore((s) => s.sheet?.[colIdx]?.[rowIdx]);
-  const updateValue = useSheetStore((s) => s.updateValue);
-
-  useEffect(() => {
-    setTimeout(() => {
-      updateValue("1234", colIdx, rowIdx);
-    }, colIdx * 100 + rowIdx * 10);
-  }, [colIdx, rowIdx, updateValue]);
-
-  if (data) {
-    console.log(`Rendered Cell [${colIdx}, ${rowIdx}]`);
+  const data = useSheetStore((s) => s.sheet?.[`${rowIdx}|${colIdx}`]);
+  if (rowIdx === 28 && colIdx === 0) {
+    console.log(data, "data");
   }
 
   return (

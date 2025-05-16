@@ -14,10 +14,3 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-
-.sheetGrid {
-  display: grid;
-  grid-template-columns: repeat(26, 100px);
-  grid-auto-rows: 30px;
-  padding: 1px;
-}
