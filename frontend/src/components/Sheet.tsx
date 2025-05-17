@@ -1,5 +1,11 @@
 import getGrid from "@/services/getGrid";
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 function getColumnLetter(colIndex: number): string {
   let letter = "";
@@ -14,39 +20,11 @@ function getColumnLetter(colIndex: number): string {
 const CELL_WIDTH = 80;
 const CELL_HEIGHT = 30;
 
-const grid: Grid = {
-  cells: [
-    { cellId: "1", columnId: 1, rowId: 1, height: 30, width: 80, x: 80, y: 30 },
-    { cellId: "2", columnId: 1, rowId: 2, height: 30, width: 80, x: 80, y: 60 },
-    {
-      cellId: "3",
-      columnId: 2,
-      rowId: 1,
-      height: 30,
-      width: 80,
-      x: 160,
-      y: 30,
-    },
-  ],
-  columns: [
-    { columnId: 1, height: 30, width: 80, x: 80, y: 0 },
-    { columnId: 2, height: 30, width: 80, x: 160, y: 0 },
-    { columnId: 3, height: 30, width: 80, x: 240, y: 0 },
-    { columnId: 4, height: 30, width: 80, x: 320, y: 0 },
-    { columnId: 5, height: 30, width: 80, x: 400, y: 0 },
-  ],
-  rows: [
-    { rowId: 1, height: 30, width: 80, x: 0, y: 30 },
-    { rowId: 2, height: 30, width: 80, x: 0, y: 60 },
-    { rowId: 3, height: 30, width: 80, x: 0, y: 90 },
-    { rowId: 4, height: 30, width: 80, x: 0, y: 120 },
-    { rowId: 5, height: 30, width: 80, x: 0, y: 150 },
-  ],
-};
-
 export default function Sheet() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gridContainerRef = useRef<HTMLDivElement | null>(null);
+  const [grid, setGrid] = useState<Grid>({ cells: [], columns: [], rows: [] });
+  const [loading, setLoading] = useState(false);
 
   const drawRectangle = useCallback(
     (ctx: CanvasRenderingContext2D, rect: Rect) => {
@@ -230,7 +208,15 @@ export default function Sheet() {
     drawHeaderRow(grid.rows);
     drawHeaderColumn(grid.columns);
     drawEmptyBox();
-  }, [drawCells, drawEmptyBox, drawHeaderColumn, drawHeaderRow]);
+  }, [
+    drawCells,
+    drawEmptyBox,
+    drawHeaderColumn,
+    drawHeaderRow,
+    grid.cells,
+    grid.columns,
+    grid.rows,
+  ]);
 
   useEffect(() => {
     const handleResizeGrid = () => {
@@ -261,9 +247,15 @@ export default function Sheet() {
   }, [drawGrid]);
 
   useEffect(() => {
+    setLoading(true);
     getGrid()
-      .then((data) => console.log(data))
-      .catch((err) => console.error(err));
+      .then((data) => {
+        setGrid(data);
+      })
+      .catch((err) => console.error(err))
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   return (
@@ -271,7 +263,13 @@ export default function Sheet() {
       ref={gridContainerRef}
       className='overflow-auto border border-gray-300 bg-white w-full h-[calc(100vh-119px)]'
     >
-      <canvas ref={canvasRef} className='w-full h-full' />
+      {loading ? (
+        <div className='w-full h-full flex items-center justify-center'>
+          Loading...
+        </div>
+      ) : (
+        <canvas ref={canvasRef} className='w-full h-full' />
+      )}
     </div>
   );
 }
