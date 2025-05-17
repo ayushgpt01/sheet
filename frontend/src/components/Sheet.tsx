@@ -1,3 +1,4 @@
+import getGrid from "@/services/getGrid";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 
 function getColumnLetter(colIndex: number): string {
@@ -15,13 +16,13 @@ const CELL_HEIGHT = 30;
 
 const grid: Grid = {
   cells: [
-    { cellId: "1", columnId: 1, height: 30, rowId: 1, width: 80, x: 80, y: 30 },
-    { cellId: "2", columnId: 1, height: 30, rowId: 2, width: 80, x: 80, y: 60 },
+    { cellId: "1", columnId: 1, rowId: 1, height: 30, width: 80, x: 80, y: 30 },
+    { cellId: "2", columnId: 1, rowId: 2, height: 30, width: 80, x: 80, y: 60 },
     {
       cellId: "3",
       columnId: 2,
-      height: 30,
       rowId: 1,
+      height: 30,
       width: 80,
       x: 160,
       y: 30,
@@ -31,13 +32,15 @@ const grid: Grid = {
     { columnId: 1, height: 30, width: 80, x: 80, y: 0 },
     { columnId: 2, height: 30, width: 80, x: 160, y: 0 },
     { columnId: 3, height: 30, width: 80, x: 240, y: 0 },
-    { columnId: 4, height: 30, width: 80, x: 300, y: 0 },
+    { columnId: 4, height: 30, width: 80, x: 320, y: 0 },
+    { columnId: 5, height: 30, width: 80, x: 400, y: 0 },
   ],
   rows: [
     { rowId: 1, height: 30, width: 80, x: 0, y: 30 },
     { rowId: 2, height: 30, width: 80, x: 0, y: 60 },
     { rowId: 3, height: 30, width: 80, x: 0, y: 90 },
     { rowId: 4, height: 30, width: 80, x: 0, y: 120 },
+    { rowId: 5, height: 30, width: 80, x: 0, y: 150 },
   ],
 };
 
@@ -256,6 +259,12 @@ export default function Sheet() {
   useLayoutEffect(() => {
     drawGrid();
   }, [drawGrid]);
+
+  useEffect(() => {
+    getGrid()
+      .then((data) => console.log(data))
+      .catch((err) => console.error(err));
+  }, []);
 
   return (
     <div
