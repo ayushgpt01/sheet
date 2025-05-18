@@ -35,8 +35,8 @@ export default function Sheet() {
   const gridContainerRef = useRef<HTMLDivElement | null>(null);
   const [grid, setGrid] = useState<Grid>({ cells: [], columns: [], rows: [] });
   const gridRows = useRef<Map<number, RowDetails>>(new Map());
-  const totalHeight = useRef(0);
-  const totalWidth = useRef(0);
+  const [totalHeight, setTotalHeight] = useState(0);
+  const [totalWidth, setTotalWidth] = useState(0);
   const gridColumns = useRef<Map<number, ColumnDetails>>(new Map());
   const gridCells = useRef<Map<string, CellDetails>>(new Map());
   const [loading, setLoading] = useState(false);
@@ -192,7 +192,6 @@ export default function Sheet() {
         const bgColor =
           gridCells.current.get(cell.cellId)?.background ?? undefined;
         drawRectangle(ctx, cell, bgColor);
-        drawContent(ctx, cell, text);
         ctx.save();
         ctx.strokeStyle = "#c4c7c5";
         ctx.lineWidth = 2;
@@ -202,6 +201,7 @@ export default function Sheet() {
         ctx.lineTo(cell.x + cell.width, cell.y);
         ctx.stroke();
         ctx.restore();
+        drawContent(ctx, cell, text);
       }
     },
     [drawContent, drawRectangle]
@@ -219,7 +219,7 @@ export default function Sheet() {
     canvas.height = canvas.clientHeight * dpr;
     canvas.style.width = `${canvas.clientWidth}px`;
     canvas.style.height = `${canvas.clientHeight}px`;
-    ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.scale(dpr, dpr);
 
     drawCells(grid.cells);
@@ -355,7 +355,7 @@ export default function Sheet() {
 
       setGrid({ cells: cellData, columns: columnData, rows: rowData });
     },
-    [] // Dependencies are refs, usually fine with empty array for useCallback
+    []
   );
 
   const findVisibleRow = useCallback((offsetY: number): number => {
@@ -383,10 +383,9 @@ export default function Sheet() {
     const { clientWidth, clientHeight, scrollTop, scrollLeft } =
       gridContainerRef.current;
 
-    const scrollbarWidth = 16;
     const dpr = window.devicePixelRatio || 1;
-    const canvasWidth = clientWidth - scrollbarWidth;
-    const canvasHeight = clientHeight - scrollbarWidth;
+    const canvasWidth = clientWidth;
+    const canvasHeight = clientHeight;
 
     canvasRef.current.width = canvasWidth * dpr;
     canvasRef.current.height = canvasHeight * dpr;
@@ -439,7 +438,7 @@ export default function Sheet() {
       container.removeEventListener("scroll", handleScroll);
       handleScroll.cancel();
     };
-  }, [findVisibleCol, findVisibleRow, renderGrid]);
+  }, [drawGrid, findVisibleCol, findVisibleRow, renderGrid]);
 
   useLayoutEffect(() => {
     drawGrid();
@@ -455,22 +454,23 @@ export default function Sheet() {
           gridCells.current = new Map();
           gridRows.current = new Map();
           gridColumns.current = new Map();
-          totalHeight.current = data.rows[0]?.height ?? 0;
-          totalWidth.current = data.columns[0]?.width ?? 0;
+          let calculatedTotalHeight = CELL_HEIGHT;
+          let calculatedTotalWidth = CELL_WIDTH;
 
           for (const cell of data.cells) {
             gridCells.current.set(cell.cellId, cell);
           }
           for (const column of data.columns) {
             gridColumns.current.set(column.columnId, column);
-            totalWidth.current += column.width;
+            calculatedTotalWidth += column.width;
           }
           for (const row of data.rows) {
             gridRows.current.set(row.rowId, row);
-            totalHeight.current += row.height;
+            calculatedTotalHeight += row.height;
           }
 
-          handleResizeGrid();
+          setTotalWidth(calculatedTotalWidth);
+          setTotalHeight(calculatedTotalHeight);
         }
       })
       .catch((err) => console.error(err))
@@ -478,7 +478,7 @@ export default function Sheet() {
         setLoading(false);
       });
     initialized.current = true;
-  }, [handleResizeGrid]);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -497,6 +497,22 @@ export default function Sheet() {
     };
   }, []);
 
+  const layoutDone = useRef(false);
+  // Ensures handleResizeGrid runs AFTER the DOM has potentially updated with the new
+  // totalWidth/Height, allowing scrollbars to appear and clientWidth/Height to be accurate.
+  useLayoutEffect(() => {
+    if (
+      !layoutDone.current &&
+      !loading &&
+      totalWidth > 0 &&
+      totalHeight > 0 &&
+      gridContainerRef.current
+    ) {
+      handleResizeGrid();
+      layoutDone.current = true;
+    }
+  }, [totalWidth, totalHeight, loading, handleResizeGrid]);
+
   return (
     <div className='relative select-none'>
       <div
@@ -512,8 +528,8 @@ export default function Sheet() {
         ) : null}
         <div
           style={{
-            width: totalWidth.current,
-            height: totalHeight.current,
+            width: totalWidth,
+            height: totalHeight,
           }}
         />
       </div>
