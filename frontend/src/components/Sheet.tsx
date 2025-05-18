@@ -1,4 +1,5 @@
 import getGrid from "@/services/getGrid";
+import { debounce } from "lodash";
 import {
   useCallback,
   useEffect,
@@ -6,7 +7,6 @@ import {
   useRef,
   useState,
 } from "react";
-import ScrollBar from "./ScrollBar";
 
 function getColumnLetter(colIndex: number): string {
   let letter = "";
@@ -29,9 +29,6 @@ interface IRenderGrid {
 
 const CELL_WIDTH = 80;
 const CELL_HEIGHT = 30;
-const SCROLL_BAR_SIZE = 12;
-const SCROLL_THUMB_SIZE = 48;
-const SCROLL_STEP = 30;
 
 export default function Sheet() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -43,12 +40,6 @@ export default function Sheet() {
   const gridColumns = useRef<Map<number, ColumnDetails>>(new Map());
   const gridCells = useRef<Map<string, CellDetails>>(new Map());
   const [loading, setLoading] = useState(false);
-  const verticalScroll = useRef<HTMLDivElement | null>(null);
-  const horizontalScroll = useRef<HTMLDivElement | null>(null);
-  const scrollPosition = useRef({
-    top: 0,
-    left: 0,
-  });
 
   const drawRectangle = useCallback(
     (ctx: CanvasRenderingContext2D, rect: Rect, bgColor: string = "#fff") => {
@@ -247,8 +238,8 @@ export default function Sheet() {
 
   const renderGrid = useCallback(
     ({
-      offsetX = CELL_WIDTH,
-      offsetY = CELL_HEIGHT,
+      offsetX = 0,
+      offsetY = 0,
       rowStart = 1,
       colStart = 1,
       width: canvasWidth,
@@ -262,25 +253,43 @@ export default function Sheet() {
       canvasWidth ??= canvas?.width || 10;
       canvasHeight ??= canvas?.height || 10;
 
-      for (
-        let i = rowStart, y = offsetY;
-        y < canvasHeight && i <= gridRows.current.size;
-        i++
-      ) {
+      let accY = gridRows.current.get(1)?.height || CELL_HEIGHT;
+      for (let i = rowStart; i <= gridRows.current.size; i++) {
         const height = gridRows.current.get(i)?.height || CELL_HEIGHT;
-        if (y + height > 0) {
-          rowData.push({ y, x: 0, rowId: i, height, width: CELL_WIDTH });
-        }
-        y += height;
+        accY += height;
+        const rowTop = accY - height;
+
+        // Skip rows above the current scroll
+        if (rowTop + height < offsetY) continue;
+
+        // Stop if row starts below the canvas viewport
+        if (rowTop > offsetY + canvasHeight) break;
+
+        rowData.push({
+          y: rowTop - offsetY,
+          x: 0,
+          rowId: i,
+          height,
+          width: CELL_WIDTH,
+        });
       }
 
-      for (let i = colStart, x = offsetX; i <= gridColumns.current.size; i++) {
+      let accX = gridColumns.current.get(0)?.width || CELL_WIDTH;
+      for (let i = colStart; i <= gridColumns.current.size; i++) {
         const width = gridColumns.current.get(i)?.width || CELL_WIDTH;
-        if (x >= canvasWidth) break;
-        if (x + width > 0) {
-          columnData.push({ x, y: 0, columnId: i, width, height: CELL_HEIGHT });
-        }
-        x += width;
+        accX += width;
+        const colLeft = accX - width;
+
+        if (colLeft + width < offsetX) continue;
+        if (colLeft > offsetX + canvasWidth) break;
+
+        columnData.push({
+          x: colLeft - offsetX,
+          y: 0,
+          columnId: i,
+          width,
+          height: CELL_HEIGHT,
+        });
       }
 
       for (const { rowId, height, y } of rowData) {
@@ -295,143 +304,58 @@ export default function Sheet() {
     []
   );
 
-  const updateCanvasDimensions = useCallback(() => {
-    if (!canvasRef.current || !gridContainerRef.current) return;
-    const { clientWidth, clientHeight } = gridContainerRef.current;
-    const dpr = window.devicePixelRatio || 1;
+  const findVisibleRow = useCallback((offsetY: number): number => {
+    let acc = 0;
+    for (let i = 1; i <= gridRows.current.size; i++) {
+      const h = gridRows.current.get(i)?.height || CELL_HEIGHT;
+      if (acc + h > offsetY) return i;
+      acc += h;
+    }
+    return gridRows.current.size;
+  }, []);
 
-    canvasRef.current.width = clientWidth * dpr;
-    canvasRef.current.height = clientHeight * dpr;
-    canvasRef.current.style.width = `${clientWidth}px`;
-    canvasRef.current.style.height = `${clientHeight}px`;
+  const findVisibleCol = useCallback((offsetX: number): number => {
+    let acc = 0;
+    for (let i = 1; i <= gridColumns.current.size; i++) {
+      const w = gridColumns.current.get(i)?.width || CELL_WIDTH;
+      if (acc + w > offsetX) return i;
+      acc += w;
+    }
+    return gridColumns.current.size;
+  }, []);
+
+  const handleResizeGrid = useCallback(() => {
+    if (!canvasRef.current || !gridContainerRef.current) return;
+    const { clientWidth, clientHeight, scrollTop, scrollLeft } =
+      gridContainerRef.current;
+
+    const scrollbarWidth = 16;
+    const dpr = window.devicePixelRatio || 1;
+    const canvasWidth = clientWidth - scrollbarWidth;
+    const canvasHeight = clientHeight - scrollbarWidth;
+
+    canvasRef.current.width = canvasWidth * dpr;
+    canvasRef.current.height = canvasHeight * dpr;
+    canvasRef.current.style.width = `${canvasWidth}px`;
+    canvasRef.current.style.height = `${canvasHeight}px`;
 
     const ctx = canvasRef.current.getContext("2d");
     if (ctx) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, clientWidth, clientHeight);
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
       ctx.scale(dpr, dpr);
     }
 
-    renderGrid({ width: clientWidth * dpr, height: clientHeight * dpr });
-    drawGrid();
-  }, [drawGrid, renderGrid]);
-
-  const handleResizeGrid = useCallback(() => {
-    updateCanvasDimensions();
-  }, [updateCanvasDimensions]);
-
-  const handleVerticalScroll = (rawDeltaY: number) => {
-    if (!gridContainerRef.current || !grid.rows.length || !grid.columns.length)
-      return;
-
-    const deltaY = Math.sign(rawDeltaY) * SCROLL_STEP;
-    const { clientHeight } = gridContainerRef.current;
-
-    let { rowId, y } = grid.rows[0];
-    const { columnId, x } = grid.columns[0];
-
-    // Clamp scroll
-    const maxScrollTop = Math.max(0, totalHeight.current - clientHeight);
-    const scrollTop = Math.min(
-      Math.max(0, scrollPosition.current.top + deltaY),
-      maxScrollTop
-    );
-
-    scrollPosition.current.top = scrollTop;
-
-    if (deltaY < 0) {
-      // Scroll upwards
-      y += -deltaY;
-      rowId--;
-
-      while (rowId > 0 && y > CELL_HEIGHT) {
-        y -= gridRows.current.get(rowId)?.height || CELL_HEIGHT;
-        rowId--;
-      }
-
-      const offsetY = Math.min(CELL_HEIGHT, y);
-
-      renderGrid({
-        offsetX: x,
-        offsetY,
-        rowStart: rowId + 1,
-        colStart: columnId,
-      });
-    } else {
-      // Scroll downwards
-      renderGrid({
-        offsetX: x,
-        offsetY: y + -deltaY,
-        rowStart: rowId,
-        colStart: columnId,
-      });
-    }
-
-    if (verticalScroll.current) {
-      const scrollRatio = scrollTop / maxScrollTop;
-      const trackHeight = clientHeight - (SCROLL_BAR_SIZE - SCROLL_THUMB_SIZE);
-      verticalScroll.current.style.top = `${scrollRatio * trackHeight}px`;
-    }
-  };
-
-  const handleHorizontalScroll = (rawDeltaX: number) => {
-    if (!gridContainerRef.current || !grid.rows.length || !grid.columns.length)
-      return;
-
-    const { clientWidth } = gridContainerRef.current;
-    const { rowId, y } = grid.rows[0];
-    let { x } = grid.columns[0];
-
-    // Total width of all columns
-    const maxScrollLeft = Math.max(0, totalWidth.current - clientWidth);
-
-    // Scale deltaX based on how much we can scroll vs visible
-    const scrollRatio = maxScrollLeft / (clientWidth - SCROLL_THUMB_SIZE);
-    const deltaX = rawDeltaX * scrollRatio;
-
-    let scrollLeft = scrollPosition.current.left + deltaX;
-
-    // Clamp scrollLeft
-    scrollLeft = Math.min(Math.max(0, scrollLeft), maxScrollLeft);
-    scrollPosition.current.left = scrollLeft;
-
-    // Determine which column to start rendering from after scroll
-    let accumulatedWidth = 0;
-    let startColumnId = 1;
-    for (let i = 1; i <= gridColumns.current.size; i++) {
-      const colWidth = gridColumns.current.get(i)?.width || CELL_WIDTH;
-
-      if (accumulatedWidth + colWidth > scrollLeft) {
-        startColumnId = i;
-        x = accumulatedWidth;
-        break;
-      }
-      accumulatedWidth += colWidth;
-    }
-
     renderGrid({
-      offsetX: scrollLeft - x < CELL_WIDTH ? CELL_WIDTH : scrollLeft - x,
-      offsetY: y,
-      rowStart: rowId,
-      colStart: startColumnId,
+      offsetX: scrollLeft,
+      offsetY: scrollTop,
+      rowStart: findVisibleRow(scrollTop),
+      colStart: findVisibleCol(scrollLeft),
+      width: canvasWidth * dpr,
+      height: canvasHeight * dpr,
     });
-
-    // Move the scrollbar thumb
-    if (horizontalScroll.current) {
-      const thumbTravelWidth = clientWidth - SCROLL_THUMB_SIZE;
-      const scrollRatio = scrollLeft / maxScrollLeft;
-      horizontalScroll.current.style.left = `${
-        scrollRatio * thumbTravelWidth
-      }px`;
-    }
-  };
-
-  const handleScroll: React.WheelEventHandler<HTMLDivElement> = (event) => {
-    const { deltaX, deltaY } = event;
-
-    if (deltaX === 0) handleVerticalScroll(deltaY);
-    else handleHorizontalScroll(deltaX);
-  };
+    drawGrid();
+  }, [drawGrid, findVisibleCol, findVisibleRow, renderGrid]);
 
   useEffect(() => {
     window.addEventListener("resize", handleResizeGrid);
@@ -440,9 +364,32 @@ export default function Sheet() {
     };
   }, [handleResizeGrid]);
 
+  useEffect(() => {
+    const container = gridContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = debounce(() => {
+      const scrollLeft = container.scrollLeft;
+      const scrollTop = container.scrollTop;
+
+      renderGrid({
+        offsetX: scrollLeft,
+        offsetY: scrollTop,
+        rowStart: findVisibleRow(scrollTop),
+        colStart: findVisibleCol(scrollLeft),
+      });
+    }, 8);
+
+    container.addEventListener("scroll", handleScroll);
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      handleScroll.cancel();
+    };
+  }, [findVisibleCol, findVisibleRow, renderGrid]);
+
   useLayoutEffect(() => {
     drawGrid();
-  }, [drawGrid]);
+  }, [grid, drawGrid]);
 
   const initialized = useRef(false);
   useEffect(() => {
@@ -454,8 +401,8 @@ export default function Sheet() {
           gridCells.current = new Map();
           gridRows.current = new Map();
           gridColumns.current = new Map();
-          totalHeight.current = data.columns[0]?.width ?? 0;
-          totalWidth.current = data.rows[0]?.height ?? 0;
+          totalHeight.current = 0;
+          totalWidth.current = 0;
 
           for (const cell of data.cells) {
             gridCells.current.set(cell.cellId, cell);
@@ -479,35 +426,44 @@ export default function Sheet() {
     initialized.current = true;
   }, [handleResizeGrid]);
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = gridContainerRef.current;
+    if (!canvas || !container) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      container.scrollLeft += event.deltaX;
+      container.scrollTop += event.deltaY;
+    };
+
+    canvas.addEventListener("wheel", handleWheel);
+    return () => {
+      canvas.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
+
   return (
-    <div
-      ref={gridContainerRef}
-      onWheel={handleScroll}
-      className='relative overflow-hidden border border-gray-300 bg-white w-full h-[calc(100vh-119px)] select-none'
-    >
-      {loading ? (
-        <div className='relative w-full h-full flex justify-center items-center'>
-          <div className='loader'>
-            <div></div>
-            <div></div>
-            <div></div>
+    <div className='relative select-none'>
+      <div
+        ref={gridContainerRef}
+        className='overflow-auto w-full h-[calc(100vh-119px)] border border-gray-300 bg-white'
+      >
+        {loading ? (
+          <div className='relative w-full h-full flex justify-center items-center'>
+            <span className='absolute top-[62%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-light-green font-medium'>
+              Loading...
+            </span>
           </div>
-          <span className='absolute top-[62%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-light-green font-medium'>
-            Loading...
-          </span>
-        </div>
-      ) : null}
-      <canvas ref={canvasRef} className='w-full h-full' />
-      <ScrollBar
-        thumbRef={verticalScroll}
-        axis='y'
-        onScroll={handleVerticalScroll}
-      />
-      <ScrollBar
-        thumbRef={horizontalScroll}
-        axis='x'
-        onScroll={handleHorizontalScroll}
-      />
+        ) : null}
+        <div
+          style={{
+            width: totalWidth.current,
+            height: totalHeight.current,
+          }}
+        />
+      </div>
+      <canvas ref={canvasRef} className='absolute top-0 left-0' />
     </div>
   );
 }
