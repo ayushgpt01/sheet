@@ -250,58 +250,112 @@ export default function Sheet() {
       const columnData: IColumn[] = [];
       const cellData: ICell[] = [];
 
-      canvasWidth ??= canvas?.width || 10;
-      canvasHeight ??= canvas?.height || 10;
+      canvasWidth ??= canvas?.clientWidth || 10;
+      canvasHeight ??= canvas?.clientHeight || 10;
 
-      let accY = gridRows.current.get(1)?.height || CELL_HEIGHT;
+      // Calculate the available drawing area for data content, excluding fixed headers.
+      // These are used for more precise loop break conditions.
+      const dataAreaHeight = canvasHeight - CELL_HEIGHT;
+      const dataAreaWidth = canvasWidth - CELL_WIDTH;
+
+      // --- Calculate Visible Row Headers (e.g., 1, 2, 3...) ---
+      let currentAbsoluteRowTop = 0;
+      // Sum heights of rows before rowStart to find the absolute top Y of rowStart
+      for (let r = 1; r < rowStart; r++) {
+        currentAbsoluteRowTop += gridRows.current.get(r)?.height || CELL_HEIGHT;
+      }
+
       for (let i = rowStart; i <= gridRows.current.size; i++) {
         const height = gridRows.current.get(i)?.height || CELL_HEIGHT;
-        accY += height;
-        const rowTop = accY - height;
+        const rowTopAbsolute = currentAbsoluteRowTop; // Absolute Y top of the current data row 'i'
 
-        // Skip rows above the current scroll
-        if (rowTop + height < offsetY) continue;
+        // If the data row is entirely above the scrolled viewport, skip its header
+        if (rowTopAbsolute + height < offsetY) {
+          currentAbsoluteRowTop += height;
+          continue;
+        }
+        // If the top of the data row is such that its header would start at or beyond the bottom of the canvas's data area, stop
+        // (rowTopAbsolute - offsetY) is the relative top of the data row content.
+        // We stop if this relative top is >= dataAreaHeight.
+        if (dataAreaHeight >= 0 && rowTopAbsolute - offsetY >= dataAreaHeight) {
+          break;
+        }
+        // Fallback break if canvas is too small for dataAreaHeight to be positive
+        if (dataAreaHeight < 0 && rowTopAbsolute >= offsetY) {
+          // No space for rows if headers take all height
+          break;
+        }
 
-        // Stop if row starts below the canvas viewport
-        if (rowTop > offsetY + canvasHeight) break;
-
+        // Row headers are drawn in the strip x=[0, CELL_WIDTH], starting below the column header area (y=CELL_HEIGHT).
         rowData.push({
-          y: rowTop - offsetY,
-          x: 0,
+          y: rowTopAbsolute - offsetY + CELL_HEIGHT, // Canvas y for the row header
+          x: 0, // Canvas x for the row header
           rowId: i,
           height,
           width: CELL_WIDTH,
         });
+        currentAbsoluteRowTop += height;
       }
 
-      let accX = gridColumns.current.get(0)?.width || CELL_WIDTH;
+      // --- Calculate Visible Column Headers (e.g., A, B, C...) ---
+      let currentAbsoluteColLeft = 0;
+      // Sum widths of columns before colStart to find the absolute left X of colStart
+      for (let c = 1; c < colStart; c++) {
+        currentAbsoluteColLeft +=
+          gridColumns.current.get(c)?.width || CELL_WIDTH;
+      }
+
       for (let i = colStart; i <= gridColumns.current.size; i++) {
         const width = gridColumns.current.get(i)?.width || CELL_WIDTH;
-        accX += width;
-        const colLeft = accX - width;
+        const colLeftAbsolute = currentAbsoluteColLeft; // Absolute X left of the current data column 'i'
 
-        if (colLeft + width < offsetX) continue;
-        if (colLeft > offsetX + canvasWidth) break;
+        // If the data column is entirely to the left of the scrolled viewport, skip its header
+        if (colLeftAbsolute + width < offsetX) {
+          currentAbsoluteColLeft += width;
+          continue;
+        }
+        // If the left of the data column is such that its header would start at or beyond the right of the canvas's data area, stop
+        if (dataAreaWidth >= 0 && colLeftAbsolute - offsetX >= dataAreaWidth) {
+          break;
+        }
+        // Fallback break if canvas is too small
+        if (dataAreaWidth < 0 && colLeftAbsolute >= offsetX) {
+          break;
+        }
 
+        // Column headers are drawn in the strip y=[0, CELL_HEIGHT], starting after the row header area (x=CELL_WIDTH).
         columnData.push({
-          x: colLeft - offsetX,
-          y: 0,
+          x: colLeftAbsolute - offsetX + CELL_WIDTH, // Canvas x for the column header
+          y: 0, // Canvas y for the column header
           columnId: i,
           width,
           height: CELL_HEIGHT,
         });
+        currentAbsoluteColLeft += width;
       }
 
-      for (const { rowId, height, y } of rowData) {
-        for (const { width, x, columnId } of columnData) {
-          const cellId = `${columnId},${rowId}`;
-          cellData.push({ x, y, rowId, columnId, width, height, cellId });
+      // --- Calculate Visible Cells ---
+      // r_item.y is the canvas y for the top of the row header (already includes +CELL_HEIGHT).
+      // c_item.x is the canvas x for the left of the column header (already includes +CELL_WIDTH).
+      // These coordinates now directly define the top-left of the data cell area.
+      for (const r_item of rowData) {
+        for (const c_item of columnData) {
+          const cellId = `${c_item.columnId},${r_item.rowId}`;
+          cellData.push({
+            x: c_item.x, // Use the already offset column header's x
+            y: r_item.y, // Use the already offset row header's y
+            rowId: r_item.rowId,
+            columnId: c_item.columnId,
+            width: c_item.width, // Data cell width is column width
+            height: r_item.height, // Data cell height is row height
+            cellId,
+          });
         }
       }
 
       setGrid({ cells: cellData, columns: columnData, rows: rowData });
     },
-    []
+    [] // Dependencies are refs, usually fine with empty array for useCallback
   );
 
   const findVisibleRow = useCallback((offsetY: number): number => {
@@ -342,7 +396,7 @@ export default function Sheet() {
     const ctx = canvasRef.current.getContext("2d");
     if (ctx) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+      ctx.clearRect(0, 0, canvasWidth * dpr, canvasHeight * dpr);
       ctx.scale(dpr, dpr);
     }
 
@@ -351,8 +405,8 @@ export default function Sheet() {
       offsetY: scrollTop,
       rowStart: findVisibleRow(scrollTop),
       colStart: findVisibleCol(scrollLeft),
-      width: canvasWidth * dpr,
-      height: canvasHeight * dpr,
+      width: canvasWidth,
+      height: canvasHeight,
     });
     drawGrid();
   }, [drawGrid, findVisibleCol, findVisibleRow, renderGrid]);
@@ -401,8 +455,8 @@ export default function Sheet() {
           gridCells.current = new Map();
           gridRows.current = new Map();
           gridColumns.current = new Map();
-          totalHeight.current = 0;
-          totalWidth.current = 0;
+          totalHeight.current = data.rows[0]?.height ?? 0;
+          totalWidth.current = data.columns[0]?.width ?? 0;
 
           for (const cell of data.cells) {
             gridCells.current.set(cell.cellId, cell);
