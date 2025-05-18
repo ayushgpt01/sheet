@@ -63,3 +63,28 @@ type IConfig = {
   scale: number[];
   fontSizes: string[];
 };
+
+// Types for API's
+type RowDetails = {
+  rowId: number;
+  height: number;
+};
+
+type ColumnDetails = {
+  columnId: number;
+  width: number;
+};
+
+type CellDetails = {
+  cellId: string;
+  rowId: number;
+  columnId: number;
+  text?: string | null;
+  background?: string | null;
+};
+
+type GridData = {
+  rows: RowDetails[];
+  columns: ColumnDetails[];
+  cells: CellDetails[];
+};
