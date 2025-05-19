@@ -26,6 +26,13 @@ type ICell = {
 // Type of the entire paintable grid
 type Grid = { rows: IRow[]; columns: IColumn[]; cells: ICell[] };
 
+type SelectionRange = {
+  startRow: number;
+  startCol: number;
+  endRow: number;
+  endCol: number;
+};
+
 // Used for toolbar currently active styles
 type ActiveStyleConfig = {
   bold: boolean;

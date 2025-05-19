@@ -1,4 +1,5 @@
 import getGrid from "@/services/getGrid";
+import { isInRange, lastItem } from "@/utils";
 import { debounce } from "lodash";
 import {
   useCallback,
@@ -41,6 +42,17 @@ export default function Sheet() {
   const gridCells = useRef<Map<string, CellDetails>>(new Map());
   const [loading, setLoading] = useState(false);
 
+  // Selecting cell removes other selections. This is always present
+  const [selectedCell, setSelectedCell] = useState<string>("1,1");
+  // Selecting range also selects first cell in range
+  const [selectedRange, setSelectedRange] = useState<SelectionRange | null>(
+    null
+  );
+  // Selecting row also selects the entire row as range and first cell
+  const [selectedRow, setSelectedRow] = useState<number | null>(null);
+  // Selecting column also selects the entire column as range and first cell
+  const [selectedColumn, setSelectedColumn] = useState<number | null>(null);
+
   const drawRectangle = useCallback(
     (ctx: CanvasRenderingContext2D, rect: Rect, bgColor: string = "#fff") => {
       ctx.save();
@@ -77,14 +89,17 @@ export default function Sheet() {
       if (!ctx) return;
       // Draw the headers
       for (const row of rows) {
-        // Draw rectangle
-        drawRectangle(ctx, row);
+        const isSelected =
+          selectedRow === row.rowId ||
+          (!selectedColumn && isInRange(selectedRange, row.rowId, 1));
+        const bgColor = isSelected ? "#0957d2" : "#fff";
+        drawRectangle(ctx, row, bgColor);
         ctx.save();
         ctx.strokeStyle = "#c4c7c5";
         ctx.lineWidth = 2;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillStyle = "#000";
+        ctx.fillStyle = isSelected ? "#fff" : "#000";
         ctx.font = `13px "Open Sans", sans-serif`;
         ctx.beginPath();
         ctx.moveTo(row.x, row.y + row.height);
@@ -111,7 +126,7 @@ export default function Sheet() {
       ctx.stroke();
       ctx.restore();
     },
-    [drawRectangle]
+    [drawRectangle, selectedRange, selectedRow, selectedColumn]
   );
 
   const drawHeaderColumn = useCallback(
@@ -122,13 +137,17 @@ export default function Sheet() {
       if (!ctx) return;
 
       for (const column of columns) {
-        drawRectangle(ctx, column);
+        const isSelected =
+          selectedColumn === column.columnId ||
+          (!selectedRow && isInRange(selectedRange, 1, column.columnId));
+        const bgColor = isSelected ? "#0957d2" : "#fff";
+        drawRectangle(ctx, column, bgColor);
         ctx.save();
         ctx.strokeStyle = "#c4c7c5";
         ctx.lineWidth = 2;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillStyle = "#000";
+        ctx.fillStyle = isSelected ? "#fff" : "#000";
         ctx.font = `13px "Open Sans", sans-serif`;
         ctx.beginPath();
         ctx.moveTo(column.x + column.width, column.y);
@@ -154,7 +173,7 @@ export default function Sheet() {
       ctx.stroke();
       ctx.restore();
     },
-    [drawRectangle]
+    [drawRectangle, selectedColumn, selectedRange, selectedRow]
   );
 
   const drawEmptyBox = useCallback(() => {
@@ -378,6 +397,17 @@ export default function Sheet() {
     return gridColumns.current.size;
   }, []);
 
+  const findCellAt = useCallback(
+    (x: number, y: number) => {
+      const row = findVisibleRow(y);
+      const column = findVisibleCol(x);
+      if (row && column) return { row, column };
+
+      return null;
+    },
+    [findVisibleCol, findVisibleRow]
+  );
+
   const handleResizeGrid = useCallback(() => {
     if (!canvasRef.current || !gridContainerRef.current) return;
     const { clientWidth, clientHeight, scrollTop, scrollLeft } =
@@ -491,11 +521,93 @@ export default function Sheet() {
       container.scrollTop += event.deltaY;
     };
 
+    // const handlePointerDown = (e: PointerEvent) => {
+    //   // Start selecting the range from current cell
+    //   console.log(e);
+    // };
+    // const handlePointerUp = (e: PointerEvent) => {
+    //   // Get the current position and update the range up till this cell in a rectangle
+    //   console.log(e);
+    // };
+
     canvas.addEventListener("wheel", handleWheel);
+    // canvas.addEventListener("pointerdown", handlePointerDown);
+    // canvas.addEventListener("pointerup", handlePointerUp);
     return () => {
       canvas.removeEventListener("wheel", handleWheel);
+      // canvas.removeEventListener("pointerdown", handlePointerDown);
+      // canvas.removeEventListener("pointerup", handlePointerUp);
     };
-  }, []);
+  }, [findCellAt, findVisibleCol, findVisibleRow]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = gridContainerRef.current;
+    if (!canvas || !container) return;
+
+    const handleClick = (e: MouseEvent) => {
+      const x = e.offsetX;
+      const y = e.offsetY;
+      const endRow = lastItem(gridRows.current)?.rowId ?? 1;
+      const endCol = lastItem(gridColumns.current)?.columnId ?? 1;
+
+      setSelectedRange(null);
+      setSelectedColumn(null);
+      setSelectedRow(null);
+
+      if (x <= CELL_WIDTH && y <= CELL_HEIGHT) {
+        // Empty Box click - select all
+        setSelectedRange({
+          startRow: 1,
+          startCol: 1,
+          endRow,
+          endCol,
+        });
+        setSelectedCell("1,1");
+      } else if (x <= CELL_WIDTH) {
+        // Row click
+        const adjustedY = y + container.scrollTop - CELL_HEIGHT;
+        const row = findVisibleRow(adjustedY);
+        if (row) {
+          setSelectedRow(row);
+          setSelectedCell(`1,${row}`);
+          setSelectedRange({
+            startRow: row,
+            endRow: row,
+            startCol: 1,
+            endCol,
+          });
+        }
+      } else if (y <= CELL_HEIGHT) {
+        // Column click
+        const adjustedX = x + container.scrollLeft - CELL_WIDTH;
+        const column = findVisibleCol(adjustedX);
+        if (column) {
+          setSelectedColumn(column);
+          setSelectedCell(`${column},1`);
+          setSelectedRange({
+            startRow: 1,
+            endRow,
+            startCol: column,
+            endCol: column,
+          });
+        }
+      } else {
+        // Cell click
+        const adjustedX = x + container.scrollLeft - CELL_WIDTH;
+        const adjustedY = y + container.scrollTop - CELL_HEIGHT;
+        const cell = findCellAt(adjustedX, adjustedY);
+        if (cell) {
+          setSelectedCell(`${cell.column},${cell.row}`);
+        }
+      }
+    };
+
+    canvas.addEventListener("click", handleClick);
+    return () => {
+      canvas.removeEventListener("click", handleClick);
+    };
+  }, [findCellAt, findVisibleCol, findVisibleRow]);
 
   const layoutDone = useRef(false);
   // Ensures handleResizeGrid runs AFTER the DOM has potentially updated with the new
