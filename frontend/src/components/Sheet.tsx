@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -44,6 +45,7 @@ export default function Sheet() {
 
   // Selecting cell removes other selections. This is always present
   const [selectedCell, setSelectedCell] = useState<string>("1,1");
+  const [editCell, setEditCell] = useState<string | null>(null);
   // Selecting range also selects first cell in range
   const [selectedRange, setSelectedRange] = useState<SelectionRange | null>(
     null
@@ -208,8 +210,14 @@ export default function Sheet() {
       // Draw the cells
       for (const cell of cells) {
         const text = gridCells.current.get(cell.cellId)?.text || "";
-        const bgColor =
-          gridCells.current.get(cell.cellId)?.background ?? undefined;
+        const isSelectedRange = isInRange(
+          selectedRange,
+          cell.rowId,
+          cell.columnId
+        );
+        const bgColor = isSelectedRange
+          ? "#e5effe"
+          : gridCells.current.get(cell.cellId)?.background ?? undefined;
         drawRectangle(ctx, cell, bgColor);
         ctx.save();
         ctx.strokeStyle = "#c4c7c5";
@@ -223,7 +231,7 @@ export default function Sheet() {
         drawContent(ctx, cell, text);
       }
     },
-    [drawContent, drawRectangle]
+    [drawContent, drawRectangle, selectedRange]
   );
 
   const drawGrid = useCallback(() => {
@@ -408,6 +416,58 @@ export default function Sheet() {
     [findVisibleCol, findVisibleRow]
   );
 
+  const getCellPosition = useCallback(
+    (
+      cellId: string
+    ): { left: number; top: number; width: number; height: number } => {
+      const [colId, rowId] = cellId.split(",").map(Number);
+      let left = 0;
+      for (let i = 1; i < colId; i++) {
+        left += gridColumns.current.get(i)?.width || CELL_WIDTH;
+      }
+      let top = 0;
+      for (let i = 1; i < rowId; i++) {
+        top += gridRows.current.get(i)?.height || CELL_HEIGHT;
+      }
+      const width = gridColumns.current.get(colId)?.width || CELL_WIDTH;
+      const height = gridRows.current.get(rowId)?.height || CELL_HEIGHT;
+      return { left: left + CELL_WIDTH, top: top + CELL_HEIGHT, width, height };
+    },
+    []
+  );
+
+  const getRangePosition = useCallback(
+    (
+      range: SelectionRange
+    ): { left: number; top: number; width: number; height: number } => {
+      const startCol = Math.min(range.startCol, range.endCol);
+      const endCol = Math.max(range.startCol, range.endCol);
+      const startRow = Math.min(range.startRow, range.endRow);
+      const endRow = Math.max(range.startRow, range.endRow);
+
+      let left = 0;
+      for (let i = 1; i < startCol; i++) {
+        left += gridColumns.current.get(i)?.width || CELL_WIDTH;
+      }
+      let width = 0;
+      for (let i = startCol; i <= endCol; i++) {
+        width += gridColumns.current.get(i)?.width || CELL_WIDTH;
+      }
+
+      let top = 0;
+      for (let i = 1; i < startRow; i++) {
+        top += gridRows.current.get(i)?.height || CELL_HEIGHT;
+      }
+      let height = 0;
+      for (let i = startRow; i <= endRow; i++) {
+        height += gridRows.current.get(i)?.height || CELL_HEIGHT;
+      }
+
+      return { left: left + CELL_WIDTH, top: top + CELL_HEIGHT, width, height };
+    },
+    []
+  );
+
   const handleResizeGrid = useCallback(() => {
     if (!canvasRef.current || !gridContainerRef.current) return;
     const { clientWidth, clientHeight, scrollTop, scrollLeft } =
@@ -540,6 +600,12 @@ export default function Sheet() {
     };
   }, [findCellAt, findVisibleCol, findVisibleRow]);
 
+  const inputPosition = useRef<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = gridContainerRef.current;
@@ -554,6 +620,7 @@ export default function Sheet() {
       setSelectedRange(null);
       setSelectedColumn(null);
       setSelectedRow(null);
+      setEditCell(null);
 
       if (x <= CELL_WIDTH && y <= CELL_HEIGHT) {
         // Empty Box click - select all
@@ -603,11 +670,59 @@ export default function Sheet() {
       }
     };
 
+    const handleDblClick = (e: MouseEvent) => {
+      const x = e.offsetX;
+      const y = e.offsetY;
+      setEditCell(null);
+
+      if (x > CELL_WIDTH && y > CELL_HEIGHT) {
+        const adjustedX = x + container.scrollLeft - CELL_WIDTH;
+        const adjustedY = y + container.scrollTop - CELL_HEIGHT;
+        const cell = findCellAt(adjustedX, adjustedY);
+        if (cell) {
+          const cellId = `${cell.column},${cell.row}`;
+          setSelectedCell(cellId);
+          setEditCell(cellId);
+          const pos = getCellPosition(cellId);
+          inputPosition.current = {
+            left: pos.left - container.scrollLeft,
+            top: pos.top - container.scrollTop,
+            width: pos.width,
+            height: pos.height,
+          };
+        }
+      }
+    };
+
     canvas.addEventListener("click", handleClick);
+    canvas.addEventListener("dblclick", handleDblClick);
     return () => {
       canvas.removeEventListener("click", handleClick);
+      canvas.removeEventListener("dblclick", handleDblClick);
     };
-  }, [findCellAt, findVisibleCol, findVisibleRow]);
+  }, [findCellAt, findVisibleCol, findVisibleRow, getCellPosition]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = gridContainerRef.current;
+    if (!canvas || !container) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") {
+        const [col, row] = selectedCell.split(",").map(Number);
+        if (col < gridRows.current.size) {
+          // Scroll if cell is not in view
+          setSelectedCell(`${col + 1},${row}`);
+        }
+      }
+      // Add other keys
+    };
+
+    canvas.addEventListener("keydown", handleKeyDown);
+    return () => {
+      canvas.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedCell]);
 
   const layoutDone = useRef(false);
   // Ensures handleResizeGrid runs AFTER the DOM has potentially updated with the new
@@ -624,6 +739,23 @@ export default function Sheet() {
       layoutDone.current = true;
     }
   }, [totalWidth, totalHeight, loading, handleResizeGrid]);
+
+  const selectedCellPosition = useMemo(
+    () => getCellPosition(selectedCell),
+    [selectedCell, getCellPosition]
+  );
+  const selectedRangePosition = useMemo(
+    () =>
+      selectedRange
+        ? getRangePosition(selectedRange)
+        : {
+            left: 0,
+            top: 0,
+            width: 0,
+            height: 0,
+          },
+    [getRangePosition, selectedRange]
+  );
 
   return (
     <div className='relative select-none'>
@@ -644,8 +776,61 @@ export default function Sheet() {
             height: totalHeight,
           }}
         />
+        {selectedRange && gridContainerRef.current && (
+          <div
+            className='absolute border-2 border-[#1a73e8] z-10 pointer-events-none'
+            style={{
+              width: selectedRangePosition.width,
+              height: selectedRangePosition.height,
+              left:
+                selectedRangePosition.left -
+                gridContainerRef.current.scrollLeft,
+              top:
+                selectedRangePosition.top - gridContainerRef.current.scrollTop,
+            }}
+          />
+        )}
+        {selectedCell && gridContainerRef.current && (
+          <div
+            className='absolute border-2 border-[#1a73e8] z-10 pointer-events-none'
+            style={{
+              // Need to utilise clip path and height width 0 to handle overflow
+              width: selectedCellPosition.width,
+              height: selectedCellPosition.height,
+              left:
+                selectedCellPosition.left - gridContainerRef.current.scrollLeft,
+              top:
+                selectedCellPosition.top - gridContainerRef.current.scrollTop,
+            }}
+          />
+        )}
       </div>
-      <canvas ref={canvasRef} className='absolute top-0 left-0' />
+      <canvas
+        ref={canvasRef}
+        className='absolute top-0 left-0 z-0 focus:outline-none'
+        tabIndex={0}
+      />
+      {editCell && inputPosition.current && (
+        <input
+          // ref={inputRef}
+          type='text'
+          className='absolute border-2 border-[#1a73e8] p-2 bg-white
+            text-[13px] font-["Open_Sans"] outline-none shadow-sm shadow-blue-200'
+          style={{
+            width: inputPosition.current.width,
+            height: inputPosition.current.height,
+            left: inputPosition.current.left,
+            top: inputPosition.current.top,
+            zIndex: 20,
+          }}
+          aria-label={`Edit cell ${editCell}`}
+          autoFocus
+          // value={inputValue}
+          // onChange={handleInputChange}
+          // onKeyDown={handleInputKeyDown}
+          // onBlur={handleInputBlur}
+        />
+      )}
     </div>
   );
 }
