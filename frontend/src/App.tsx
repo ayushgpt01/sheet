@@ -4,7 +4,7 @@ import SheetsList from "@/components/SheetsList";
 
 export default function App() {
   return (
-    <main className='h-screen'>
+    <main className='h-screen overflow-hidden'>
       <Toolbar />
       <Sheet />
       <SheetsList />

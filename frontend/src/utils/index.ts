@@ -21,3 +21,19 @@ export function isInRange(
     selectedRange.endRow >= rowId
   );
 }
+
+export function getColumnLetter(colIndex: number): string {
+  let letter = "";
+  while (colIndex > 0) {
+    const rem = (colIndex - 1) % 26;
+    letter = String.fromCharCode(65 + rem) + letter;
+    colIndex = Math.floor((colIndex - 1) / 26);
+  }
+  return letter;
+}
+
+export function getCellName(cellId: string): string {
+  const [col, row] = cellId.split(",").map(Number);
+
+  return `${getColumnLetter(col)}${row}`;
+}

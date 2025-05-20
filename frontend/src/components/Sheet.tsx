@@ -1,5 +1,5 @@
 import getGrid from "@/services/getGrid";
-import { isInRange, lastItem } from "@/utils";
+import { isInRange, lastItem, getColumnLetter, getCellName } from "@/utils";
 import { debounce } from "lodash";
 import {
   useCallback,
@@ -9,16 +9,6 @@ import {
   useRef,
   useState,
 } from "react";
-
-function getColumnLetter(colIndex: number): string {
-  let letter = "";
-  while (colIndex > 0) {
-    const rem = (colIndex - 1) % 26;
-    letter = String.fromCharCode(65 + rem) + letter;
-    colIndex = Math.floor((colIndex - 1) / 26);
-  }
-  return letter;
-}
 
 interface IRenderGrid {
   offsetX?: number;
@@ -606,6 +596,7 @@ export default function Sheet() {
     width: number;
     height: number;
   } | null>(null);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = gridContainerRef.current;
@@ -702,27 +693,114 @@ export default function Sheet() {
     };
   }, [findCellAt, findVisibleCol, findVisibleRow, getCellPosition]);
 
+  const selectedCellPosition = useMemo(
+    () => getCellPosition(selectedCell),
+    [selectedCell, getCellPosition]
+  );
+
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = gridContainerRef.current;
     if (!canvas || !container) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") {
-        const [col, row] = selectedCell.split(",").map(Number);
-        if (col < gridRows.current.size) {
-          // Scroll if cell is not in view
-          setSelectedCell(`${col + 1},${row}`);
-        }
+      switch (e.key) {
+        case "ArrowRight":
+          {
+            const [col, row] = selectedCell.split(",").map(Number);
+            if (col < gridColumns.current.size) {
+              if (
+                selectedCellPosition.left -
+                  container.scrollLeft +
+                  selectedCellPosition.width >
+                container.clientWidth - CELL_WIDTH
+              ) {
+                container.scrollLeft += selectedCellPosition.width;
+              }
+              setSelectedCell(`${col + 1},${row}`);
+            }
+          }
+          break;
+        case "ArrowLeft":
+          {
+            const [col, row] = selectedCell.split(",").map(Number);
+            if (col > 1) {
+              if (
+                selectedCellPosition.left - container.scrollLeft <
+                CELL_WIDTH
+              ) {
+                container.scrollLeft -= selectedCellPosition.width;
+              }
+              setSelectedCell(`${col - 1},${row}`);
+            }
+          }
+          break;
+
+        case "ArrowDown":
+          {
+            const [col, row] = selectedCell.split(",").map(Number);
+            if (row < gridRows.current.size) {
+              if (
+                selectedCellPosition.top -
+                  container.scrollTop +
+                  selectedCellPosition.height >
+                container.clientHeight - CELL_HEIGHT
+              ) {
+                container.scrollTop += selectedCellPosition.height;
+              }
+              setSelectedCell(`${col},${row + 1}`);
+            }
+          }
+          break;
+
+        case "ArrowUp":
+          {
+            const [col, row] = selectedCell.split(",").map(Number);
+            if (row > 1) {
+              if (
+                selectedCellPosition.top - container.scrollTop <
+                CELL_HEIGHT
+              ) {
+                container.scrollTop -= selectedCellPosition.height;
+              }
+              setSelectedCell(`${col},${row - 1}`);
+            }
+          }
+          break;
+
+        case "Enter":
+          {
+            setEditCell(selectedCell);
+            inputPosition.current = {
+              left: Math.min(
+                Math.max(
+                  CELL_WIDTH,
+                  selectedCellPosition.left - container.scrollLeft
+                ),
+                (container.clientWidth || window.innerWidth) -
+                  selectedCellPosition.width -
+                  16
+              ),
+              top: Math.min(
+                selectedCellPosition.top - container.scrollTop,
+                (container.clientHeight || window.innerHeight) -
+                  selectedCellPosition.height -
+                  16
+              ),
+              width: selectedCellPosition.width,
+              height: selectedCellPosition.height,
+            };
+          }
+          break;
+        default:
       }
-      // Add other keys
     };
 
     canvas.addEventListener("keydown", handleKeyDown);
     return () => {
       canvas.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedCell]);
+  }, [editCell, selectedCell, selectedCellPosition]);
 
   const layoutDone = useRef(false);
   // Ensures handleResizeGrid runs AFTER the DOM has potentially updated with the new
@@ -740,10 +818,6 @@ export default function Sheet() {
     }
   }, [totalWidth, totalHeight, loading, handleResizeGrid]);
 
-  const selectedCellPosition = useMemo(
-    () => getCellPosition(selectedCell),
-    [selectedCell, getCellPosition]
-  );
   const selectedRangePosition = useMemo(
     () =>
       selectedRange
@@ -755,6 +829,59 @@ export default function Sheet() {
             height: 0,
           },
     [getRangePosition, selectedRange]
+  );
+
+  const getComputedClipPath = useCallback(
+    ({
+      height,
+      left,
+      top,
+      width,
+    }: {
+      left: number;
+      top: number;
+      width: number;
+      height: number;
+    }) => {
+      // Add width and height
+      if (!gridContainerRef.current) return;
+      const { clientWidth, clientHeight, scrollLeft, scrollTop } =
+        gridContainerRef.current;
+
+      const lowerXBound = CELL_WIDTH;
+      const upperXBound = clientWidth - CELL_WIDTH;
+      const lowerYBound = CELL_HEIGHT;
+      const upperYBound = clientHeight - CELL_HEIGHT;
+
+      let clipPathTop = 0;
+      let clipPathRight = 0;
+      let clipPathBottom = 0;
+      let clipPathLeft = 0;
+
+      const calculatedLeft = left - scrollLeft;
+      const calculatedTop = top - scrollTop;
+
+      if (calculatedLeft < lowerXBound) {
+        clipPathLeft = lowerXBound - calculatedLeft;
+      }
+
+      // Upper bounds also need to add the width and height since calculatedLeft
+      // is just the lower bound
+      if (calculatedLeft + width > upperXBound) {
+        clipPathRight = calculatedLeft + (width - CELL_WIDTH) - upperXBound;
+      }
+
+      if (calculatedTop < lowerYBound) {
+        clipPathTop = lowerYBound - calculatedTop;
+      }
+
+      if (calculatedTop + height > upperYBound) {
+        clipPathBottom = calculatedTop + (height - CELL_HEIGHT) - upperYBound;
+      }
+
+      return `inset(${clipPathTop}px ${clipPathRight}px ${clipPathBottom}px ${clipPathLeft}px)`;
+    },
+    []
   );
 
   return (
@@ -787,6 +914,7 @@ export default function Sheet() {
                 gridContainerRef.current.scrollLeft,
               top:
                 selectedRangePosition.top - gridContainerRef.current.scrollTop,
+              clipPath: getComputedClipPath(selectedRangePosition),
             }}
           />
         )}
@@ -794,13 +922,13 @@ export default function Sheet() {
           <div
             className='absolute border-2 border-[#1a73e8] z-10 pointer-events-none'
             style={{
-              // Need to utilise clip path and height width 0 to handle overflow
               width: selectedCellPosition.width,
               height: selectedCellPosition.height,
               left:
                 selectedCellPosition.left - gridContainerRef.current.scrollLeft,
               top:
                 selectedCellPosition.top - gridContainerRef.current.scrollTop,
+              clipPath: getComputedClipPath(selectedCellPosition),
             }}
           />
         )}
@@ -811,11 +939,9 @@ export default function Sheet() {
         tabIndex={0}
       />
       {editCell && inputPosition.current && (
-        <input
-          // ref={inputRef}
-          type='text'
-          className='absolute border-2 border-[#1a73e8] p-2 bg-white
-            text-[13px] font-["Open_Sans"] outline-none shadow-sm shadow-blue-200'
+        <div
+          className='absolute border-2 bg-white border-[#1a73e8] shadow-sm
+         shadow-[#90b4fe]'
           style={{
             width: inputPosition.current.width,
             height: inputPosition.current.height,
@@ -823,13 +949,25 @@ export default function Sheet() {
             top: inputPosition.current.top,
             zIndex: 20,
           }}
-          aria-label={`Edit cell ${editCell}`}
-          autoFocus
-          // value={inputValue}
-          // onChange={handleInputChange}
-          // onKeyDown={handleInputKeyDown}
-          // onBlur={handleInputBlur}
-        />
+        >
+          <div
+            className={`absolute top-[-21px] bg-[#458cdc] 
+            text-white text-[12px] font-medium px-1 shadow-sm shadow-black`}
+          >
+            {getCellName(editCell)}
+          </div>
+          <input
+            // ref={inputRef}
+            type='text'
+            className='relative w-full p-1 h-full text-[13px] font-["Open_Sans"] outline-none'
+            aria-label={`Edit cell ${editCell}`}
+            autoFocus
+            // value={inputValue}
+            // onChange={handleInputChange}
+            // onKeyDown={handleInputKeyDown}
+            // onBlur={handleInputBlur}
+          />
+        </div>
       )}
     </div>
   );
