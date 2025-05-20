@@ -1,5 +1,11 @@
 import getGrid from "@/services/getGrid";
-import { isInRange, lastItem, getColumnLetter, getCellName } from "@/utils";
+import {
+  isInRange,
+  lastItem,
+  getColumnLetter,
+  getCellName,
+  isPrintableKey,
+} from "@/utils";
 import { debounce } from "lodash";
 import {
   useCallback,
@@ -84,7 +90,11 @@ export default function Sheet() {
         const isSelected =
           selectedRow === row.rowId ||
           (!selectedColumn && isInRange(selectedRange, row.rowId, 1));
-        const bgColor = isSelected ? "#0957d2" : "#fff";
+        const bgColor = isSelected
+          ? "#0957d2"
+          : selectedCell.split(",")[1] === row.rowId + ""
+          ? "#d3e3fd"
+          : "#fff";
         drawRectangle(ctx, row, bgColor);
         ctx.save();
         ctx.strokeStyle = "#c4c7c5";
@@ -118,7 +128,7 @@ export default function Sheet() {
       ctx.stroke();
       ctx.restore();
     },
-    [drawRectangle, selectedRange, selectedRow, selectedColumn]
+    [selectedRow, selectedColumn, selectedRange, selectedCell, drawRectangle]
   );
 
   const drawHeaderColumn = useCallback(
@@ -132,7 +142,11 @@ export default function Sheet() {
         const isSelected =
           selectedColumn === column.columnId ||
           (!selectedRow && isInRange(selectedRange, 1, column.columnId));
-        const bgColor = isSelected ? "#0957d2" : "#fff";
+        const bgColor = isSelected
+          ? "#0957d2"
+          : selectedCell.split(",")[0] === column.columnId + ""
+          ? "#d3e3fd"
+          : "#fff";
         drawRectangle(ctx, column, bgColor);
         ctx.save();
         ctx.strokeStyle = "#c4c7c5";
@@ -165,7 +179,7 @@ export default function Sheet() {
       ctx.stroke();
       ctx.restore();
     },
-    [drawRectangle, selectedColumn, selectedRange, selectedRow]
+    [drawRectangle, selectedCell, selectedColumn, selectedRange, selectedRow]
   );
 
   const drawEmptyBox = useCallback(() => {
@@ -704,10 +718,51 @@ export default function Sheet() {
     if (!canvas || !container) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault();
+      const [col, row] = selectedCell.split(",").map(Number);
+      const isPrintable = isPrintableKey(e.key);
+      const hasModifiers = e.ctrlKey || e.altKey || e.metaKey;
+
+      // Handle printable keys to start editing
+      if (isPrintable && !hasModifiers && !editCell) {
+        setEditCell(selectedCell);
+        // setInputValue(e.key);
+        inputPosition.current = {
+          left: Math.min(
+            Math.max(
+              CELL_WIDTH,
+              selectedCellPosition.left - container.scrollLeft
+            ),
+            (container.clientWidth || window.innerWidth) -
+              selectedCellPosition.width -
+              16
+          ),
+          top: Math.min(
+            selectedCellPosition.top - container.scrollTop,
+            (container.clientHeight || window.innerHeight) -
+              selectedCellPosition.height -
+              16
+          ),
+          width: selectedCellPosition.width,
+          height: selectedCellPosition.height,
+        };
+        return;
+      }
+
+      // Handle special keys
+      if (e.key === "Backspace" && !editCell && !hasModifiers) {
+        // gridCells.current.set(selectedCell, {
+        //   cellId: selectedCell,
+        //   text: "",
+        //   background: gridCells.current.get(selectedCell)?.background,
+        // });
+        // drawGrid();
+        return;
+      }
+
       switch (e.key) {
         case "ArrowRight":
           {
-            const [col, row] = selectedCell.split(",").map(Number);
             if (col < gridColumns.current.size) {
               if (
                 selectedCellPosition.left -
@@ -723,7 +778,6 @@ export default function Sheet() {
           break;
         case "ArrowLeft":
           {
-            const [col, row] = selectedCell.split(",").map(Number);
             if (col > 1) {
               if (
                 selectedCellPosition.left - container.scrollLeft <
@@ -738,7 +792,6 @@ export default function Sheet() {
 
         case "ArrowDown":
           {
-            const [col, row] = selectedCell.split(",").map(Number);
             if (row < gridRows.current.size) {
               if (
                 selectedCellPosition.top -
@@ -755,7 +808,6 @@ export default function Sheet() {
 
         case "ArrowUp":
           {
-            const [col, row] = selectedCell.split(",").map(Number);
             if (row > 1) {
               if (
                 selectedCellPosition.top - container.scrollTop <
@@ -793,6 +845,7 @@ export default function Sheet() {
           }
           break;
         default:
+          console.log(e.key);
       }
     };
 

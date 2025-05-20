@@ -37,3 +37,7 @@ export function getCellName(cellId: string): string {
 
   return `${getColumnLetter(col)}${row}`;
 }
+
+export function isPrintableKey(key: string): boolean {
+  return /^[a-zA-Z0-9\s!@#$%^&*()_+\-=[\]{}|;:'",.<>?/~`]$/.test(key);
+}
