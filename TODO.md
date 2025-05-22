@@ -1,5 +1,24 @@
 # TODO – Sheet Implementation Plan
 
+## Backend
+
+- [x] Add logging
+- [x] Add error handling
+- [ ] Build Routes
+- [ ] Tests if have time
+
+## Frontend
+
+- [ ] Add sheets List
+- [ ] Connect mutations to sheet
+- [ ] Add basic toolbar and formula engine
+
+## Formula Engine
+
+- [ ] Write basic functions
+- [ ] Connect frontend to formula engine
+- [ ] Update backend update cell with formula engine
+
 ## ✅ Phase 1: MVP Setup
 
 - [x] Decide architecture: React (Vite) + Go (HTTP) + Rust (Formula Engine) + Postgres

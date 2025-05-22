@@ -1,6 +1,5 @@
-use crate::constants;
-
 use super::types::{Cell, Column, Grid, Row};
+use crate::constants;
 
 fn create_rows() -> Vec<Row> {
     (1..=constants::ROW_COUNT)
