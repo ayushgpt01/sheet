@@ -1,10 +1,10 @@
 import getGrid from "@/services/getGrid";
 import {
-  isInRange,
-  lastItem,
-  getColumnLetter,
   getCellName,
+  getColumnLetter,
+  isInRange,
   isPrintableKey,
+  lastItem,
 } from "@/utils";
 import { debounce } from "lodash";
 import {
@@ -38,18 +38,14 @@ export default function Sheet() {
   const gridColumns = useRef<Map<number, ColumnDetails>>(new Map());
   const gridCells = useRef<Map<string, CellDetails>>(new Map());
   const [loading, setLoading] = useState(false);
-
-  // Selecting cell removes other selections. This is always present
   const [selectedCell, setSelectedCell] = useState<string>("1,1");
   const [editCell, setEditCell] = useState<string | null>(null);
-  // Selecting range also selects first cell in range
   const [selectedRange, setSelectedRange] = useState<SelectionRange | null>(
     null
   );
-  // Selecting row also selects the entire row as range and first cell
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
-  // Selecting column also selects the entire column as range and first cell
   const [selectedColumn, setSelectedColumn] = useState<number | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const drawRectangle = useCallback(
     (ctx: CanvasRenderingContext2D, rect: Rect, bgColor: string = "#fff") => {
@@ -585,22 +581,9 @@ export default function Sheet() {
       container.scrollTop += event.deltaY;
     };
 
-    // const handlePointerDown = (e: PointerEvent) => {
-    //   // Start selecting the range from current cell
-    //   console.log(e);
-    // };
-    // const handlePointerUp = (e: PointerEvent) => {
-    //   // Get the current position and update the range up till this cell in a rectangle
-    //   console.log(e);
-    // };
-
     canvas.addEventListener("wheel", handleWheel);
-    // canvas.addEventListener("pointerdown", handlePointerDown);
-    // canvas.addEventListener("pointerup", handlePointerUp);
     return () => {
       canvas.removeEventListener("wheel", handleWheel);
-      // canvas.removeEventListener("pointerdown", handlePointerDown);
-      // canvas.removeEventListener("pointerup", handlePointerUp);
     };
   }, [findCellAt, findVisibleCol, findVisibleRow]);
 
@@ -845,7 +828,6 @@ export default function Sheet() {
           }
           break;
         default:
-          console.log(e.key);
       }
     };
 
@@ -867,6 +849,7 @@ export default function Sheet() {
       gridContainerRef.current
     ) {
       handleResizeGrid();
+      canvasRef.current?.focus();
       layoutDone.current = true;
     }
   }, [totalWidth, totalHeight, loading, handleResizeGrid]);
@@ -936,6 +919,41 @@ export default function Sheet() {
     },
     []
   );
+
+  const handleSaveInput = useCallback(
+    (value: string, cellId: string) => {
+      // Call update API
+      const cell = gridCells.current.get(cellId);
+      if (cell) {
+        gridCells.current.set(cellId, { ...cell, text: value });
+        setEditCell(null);
+        handleResizeGrid();
+        canvasRef.current?.focus();
+      }
+    },
+    [handleResizeGrid]
+  );
+
+  const handleInputKeyDown: React.KeyboardEventHandler<HTMLInputElement> =
+    useCallback((e) => {
+      console.log(e.key);
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (e.ctrlKey) {
+          return;
+        }
+        e.currentTarget.blur();
+      }
+    }, []);
+
+  const handleInputBlur: React.FocusEventHandler<HTMLInputElement> =
+    useCallback(
+      (e) => {
+        const cellId = e.currentTarget.getAttribute("data-edit-cell");
+        handleSaveInput(e.currentTarget.value, cellId!);
+      },
+      [handleSaveInput]
+    );
 
   return (
     <div className='relative select-none'>
@@ -1010,18 +1028,23 @@ export default function Sheet() {
             {getCellName(editCell)}
           </div>
           <input
-            // ref={inputRef}
+            ref={inputRef}
             type='text'
+            data-edit-cell={editCell}
             className='relative w-full p-1 h-full text-[13px] font-["Open_Sans"] outline-none'
             aria-label={`Edit cell ${editCell}`}
             autoFocus
-            // value={inputValue}
-            // onChange={handleInputChange}
-            // onKeyDown={handleInputKeyDown}
-            // onBlur={handleInputBlur}
+            onKeyDown={handleInputKeyDown}
+            onBlur={handleInputBlur}
           />
         </div>
       )}
     </div>
   );
 }
+
+// Input working - Done
+// Connect backend
+// Drag to range
+// Auto-fill with drag
+// Formulas
