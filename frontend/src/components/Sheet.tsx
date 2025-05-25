@@ -1,4 +1,4 @@
-import getGrid from "@/services/getGrid";
+import getSheet from "@/services/getSheet";
 import {
   getCellName,
   getColumnLetter,
@@ -15,6 +15,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useParams } from "react-router";
 
 interface IRenderGrid {
   offsetX?: number;
@@ -25,10 +26,11 @@ interface IRenderGrid {
   height?: number;
 }
 
-const CELL_WIDTH = 80;
-const CELL_HEIGHT = 30;
+const CELL_WIDTH = 100.0;
+const CELL_HEIGHT = 24.0;
 
 export default function Sheet() {
+  const { sheetId } = useParams();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gridContainerRef = useRef<HTMLDivElement | null>(null);
   const [grid, setGrid] = useState<Grid>({ cells: [], columns: [], rows: [] });
@@ -46,6 +48,14 @@ export default function Sheet() {
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [selectedColumn, setSelectedColumn] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const layoutDone = useRef(false);
+  const initialized = useRef<string | null>(null);
+  const inputPosition = useRef<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   const drawRectangle = useCallback(
     (ctx: CanvasRenderingContext2D, rect: Rect, bgColor: string = "#fff") => {
@@ -209,7 +219,7 @@ export default function Sheet() {
 
       // Draw the cells
       for (const cell of cells) {
-        const text = gridCells.current.get(cell.cellId)?.text || "";
+        const text = gridCells.current.get(cell.cellId)?.value || "";
         const isSelectedRange = isInRange(
           selectedRange,
           cell.rowId,
@@ -534,11 +544,10 @@ export default function Sheet() {
     drawGrid();
   }, [grid, drawGrid]);
 
-  const initialized = useRef(false);
   useEffect(() => {
-    if (initialized.current) return;
+    if (!sheetId || initialized.current === sheetId) return;
     setLoading(true);
-    getGrid()
+    getSheet({ id: parseInt(sheetId) })
       .then((data) => {
         if (data) {
           gridCells.current = new Map();
@@ -548,17 +557,18 @@ export default function Sheet() {
           let calculatedTotalWidth = CELL_WIDTH;
 
           for (const cell of data.cells) {
-            gridCells.current.set(cell.cellId, cell);
+            gridCells.current.set(`${cell.columnIndex},${cell.rowIndex}`, cell);
           }
           for (const column of data.columns) {
-            gridColumns.current.set(column.columnId, column);
+            gridColumns.current.set(column.columnIndex, column);
             calculatedTotalWidth += column.width;
           }
           for (const row of data.rows) {
-            gridRows.current.set(row.rowId, row);
+            gridRows.current.set(row.rowIndex, row);
             calculatedTotalHeight += row.height;
           }
 
+          layoutDone.current = false;
           setTotalWidth(calculatedTotalWidth);
           setTotalHeight(calculatedTotalHeight);
         }
@@ -567,8 +577,8 @@ export default function Sheet() {
       .finally(() => {
         setLoading(false);
       });
-    initialized.current = true;
-  }, []);
+    initialized.current = sheetId;
+  }, [sheetId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -587,13 +597,6 @@ export default function Sheet() {
     };
   }, [findCellAt, findVisibleCol, findVisibleRow]);
 
-  const inputPosition = useRef<{
-    left: number;
-    top: number;
-    width: number;
-    height: number;
-  } | null>(null);
-
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = gridContainerRef.current;
@@ -602,8 +605,8 @@ export default function Sheet() {
     const handleClick = (e: MouseEvent) => {
       const x = e.offsetX;
       const y = e.offsetY;
-      const endRow = lastItem(gridRows.current)?.rowId ?? 1;
-      const endCol = lastItem(gridColumns.current)?.columnId ?? 1;
+      const endRow = lastItem(gridRows.current)?.rowIndex ?? 1;
+      const endCol = lastItem(gridColumns.current)?.columnIndex ?? 1;
 
       setSelectedRange(null);
       setSelectedColumn(null);
@@ -837,7 +840,6 @@ export default function Sheet() {
     };
   }, [editCell, selectedCell, selectedCellPosition]);
 
-  const layoutDone = useRef(false);
   // Ensures handleResizeGrid runs AFTER the DOM has potentially updated with the new
   // totalWidth/Height, allowing scrollbars to appear and clientWidth/Height to be accurate.
   useLayoutEffect(() => {
@@ -925,7 +927,7 @@ export default function Sheet() {
       // Call update API
       const cell = gridCells.current.get(cellId);
       if (cell) {
-        gridCells.current.set(cellId, { ...cell, text: value });
+        gridCells.current.set(cellId, { ...cell, value: value });
         setEditCell(null);
         handleResizeGrid();
         canvasRef.current?.focus();
@@ -936,7 +938,6 @@ export default function Sheet() {
 
   const handleInputKeyDown: React.KeyboardEventHandler<HTMLInputElement> =
     useCallback((e) => {
-      console.log(e.key);
       if (e.key === "Enter") {
         e.preventDefault();
         if (e.ctrlKey) {

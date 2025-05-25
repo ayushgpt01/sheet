@@ -73,25 +73,37 @@ type IConfig = {
 
 // Types for API's
 type RowDetails = {
-  rowId: number;
+  id: number;
+  rowIndex: number;
   height: number;
 };
 
 type ColumnDetails = {
-  columnId: number;
+  id: number;
+  columnIndex: number;
   width: number;
 };
 
 type CellDetails = {
-  cellId: string;
-  rowId: number;
-  columnId: number;
-  text?: string | null;
+  id: number;
+  rowIndex: number;
+  columnIndex: number;
+  width: number;
+  height: number;
+  value?: string | null;
+  formula?: string | null;
   background?: string | null;
 };
 
-type GridData = {
+type Sheet = {
   rows: RowDetails[];
   columns: ColumnDetails[];
   cells: CellDetails[];
+};
+
+type SheetsListItem = {
+  id: number;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
 };

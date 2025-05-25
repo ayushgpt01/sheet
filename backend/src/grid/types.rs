@@ -83,6 +83,7 @@ fn default_col_count() -> i64 {
 }
 
 #[derive(Debug, Deserialize, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct SheetItem {
     pub id: i64,
     pub name: String,
@@ -91,6 +92,7 @@ pub struct SheetItem {
 }
 
 #[derive(Debug, Deserialize, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct RowItem {
     pub id: i64,
     pub sheet_id: i64,
@@ -99,6 +101,7 @@ pub struct RowItem {
 }
 
 #[derive(Debug, Deserialize, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct ColumnItem {
     pub id: i64,
     pub sheet_id: i64,
@@ -107,6 +110,7 @@ pub struct ColumnItem {
 }
 
 #[derive(Debug, Deserialize, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct CellItem {
     pub id: i64,
     pub sheet_id: i64,

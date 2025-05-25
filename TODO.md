@@ -5,11 +5,12 @@
 - [x] Add logging
 - [x] Add error handling
 - [x] Build Routes
-- [ ] Tests if have time
+- [ ] Add sheet delete/create/update routes
 
 ## Frontend
 
-- [ ] Add sheets List
+- [x] Add sheets List
+- [ ] Add sheet create, duplicate, rename and delete handling
 - [ ] Connect mutations to sheet
 - [ ] Add basic toolbar and formula engine
 
