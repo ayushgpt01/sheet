@@ -4,7 +4,7 @@
 
 - [x] Add logging
 - [x] Add error handling
-- [ ] Build Routes
+- [x] Build Routes
 - [ ] Tests if have time
 
 ## Frontend

@@ -19,7 +19,7 @@ CREATE TABLE rows (
   id bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
   sheet_id bigint NOT NULL REFERENCES sheets(id) ON DELETE CASCADE,
   row_index INTEGER NOT NULL,
-  height DOUBLE PRECISION NOT NULL DEFAULT 30.0,
+  height DOUBLE PRECISION NOT NULL DEFAULT 24.0,
   UNIQUE (sheet_id, row_index)
 );
 
@@ -28,7 +28,7 @@ CREATE TABLE columns (
   id bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
   sheet_id bigint NOT NULL REFERENCES sheets(id) ON DELETE CASCADE,
   column_index INTEGER NOT NULL,
-  width DOUBLE PRECISION NOT NULL DEFAULT 80.0,
+  width DOUBLE PRECISION NOT NULL DEFAULT 100.0,
   UNIQUE (sheet_id, column_index)
 );
 
@@ -53,3 +53,5 @@ EXECUTE FUNCTION set_updated_at();
 CREATE INDEX ON rows(sheet_id);
 CREATE INDEX ON columns(sheet_id);
 CREATE INDEX ON cells(sheet_id);
+CREATE INDEX ON cells(row_id);
+CREATE INDEX ON cells(column_id);

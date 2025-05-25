@@ -69,6 +69,17 @@ where
 #[derive(Debug, Deserialize)]
 pub struct CreateSheetPayload {
     pub name: String,
+    #[serde(default = "default_row_count")]
+    pub row_count: i64,
+    #[serde(default = "default_col_count")]
+    pub col_count: i64,
+}
+
+fn default_row_count() -> i64 {
+    1000
+}
+fn default_col_count() -> i64 {
+    26
 }
 
 #[derive(Debug, Deserialize, Serialize, FromRow)]
