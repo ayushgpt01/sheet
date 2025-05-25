@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            cells.id,\n            cells.value,\n            cells.formula,\n            rows.row_index,\n            rows.height,\n            columns.column_index,\n            columns.width\n        FROM cells\n        INNER JOIN rows ON cells.row_id = rows.id\n        INNER JOIN columns ON cells.column_id = columns.id\n        WHERE cells.sheet_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "value",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "formula",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "row_index",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "height",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 5,
+        "name": "column_index",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "width",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "2339e4319cb5d481e69f7a0b54188d651368a4f9b28df1460dd7496a19e14d69"
+}

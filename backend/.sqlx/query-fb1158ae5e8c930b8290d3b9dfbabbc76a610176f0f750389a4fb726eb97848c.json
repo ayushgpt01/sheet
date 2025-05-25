@@ -1,12 +1,12 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM sheets",
+  "query": "\n        INSERT INTO sheets (name)\n        VALUES ($1)\n        RETURNING id, name, created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
         "name": "id",
-        "type_info": "Uuid"
+        "type_info": "Int8"
       },
       {
         "ordinal": 1,
@@ -16,23 +16,25 @@
       {
         "ordinal": 2,
         "name": "created_at",
-        "type_info": "Timestamp"
+        "type_info": "Timestamptz"
       },
       {
         "ordinal": 3,
         "name": "updated_at",
-        "type_info": "Timestamp"
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Text"
+      ]
     },
     "nullable": [
       false,
       false,
-      true,
-      true
+      false,
+      false
     ]
   },
-  "hash": "9d763c98c7da0ecf05ef89038cb16069ec6be5b259e827f9ff6748b5fb42ec6d"
+  "hash": "fb1158ae5e8c930b8290d3b9dfbabbc76a610176f0f750389a4fb726eb97848c"
 }

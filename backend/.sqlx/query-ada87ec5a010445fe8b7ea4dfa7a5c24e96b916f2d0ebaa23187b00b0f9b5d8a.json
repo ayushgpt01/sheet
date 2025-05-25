@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM rows WHERE sheet_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "sheet_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "row_index",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "height",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "ada87ec5a010445fe8b7ea4dfa7a5c24e96b916f2d0ebaa23187b00b0f9b5d8a"
+}
