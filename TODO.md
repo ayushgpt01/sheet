@@ -5,7 +5,7 @@
 - [x] Add logging
 - [x] Add error handling
 - [x] Build Routes
-- [ ] Add sheet delete/create/update routes
+- [x] Add sheet delete/create/update routes
 
 ## Frontend
 

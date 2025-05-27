@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM cells WHERE sheet_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "sheet_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "row_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "column_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "value",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "formula",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "2b5ebb5a9bca46d48487498278e9074dc91122d75512ae9735c53f766224f30c"
+}

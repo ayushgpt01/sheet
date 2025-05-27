@@ -58,6 +58,11 @@ pub struct UpdateCellPayload {
     pub formula: Option<Option<String>>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateSheetPayload {
+    pub name: String,
+}
+
 fn deserialize_some<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
 where
     T: Deserialize<'de>,
