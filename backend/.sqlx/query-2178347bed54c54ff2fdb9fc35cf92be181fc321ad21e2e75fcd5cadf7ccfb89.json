@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * from sheets LIMIT $1 OFFSET $2",
+  "query": "SELECT * from sheets ORDER BY id LIMIT $1 OFFSET $2",
   "describe": {
     "columns": [
       {
@@ -37,5 +37,5 @@
       false
     ]
   },
-  "hash": "eac7a6ace441d8f6f1b3292bc7dc1d5ee803866fe507e865a85721b08f8d8cc6"
+  "hash": "2178347bed54c54ff2fdb9fc35cf92be181fc321ad21e2e75fcd5cadf7ccfb89"
 }

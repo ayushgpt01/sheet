@@ -1,4 +1,5 @@
 import getSheet from "@/services/getSheet";
+import updateSheetCell from "@/services/updateSheetCell";
 import {
   getCellName,
   getColumnLetter,
@@ -923,17 +924,31 @@ export default function Sheet() {
   );
 
   const handleSaveInput = useCallback(
-    (value: string, cellId: string) => {
-      // Call update API
-      const cell = gridCells.current.get(cellId);
-      if (cell) {
-        gridCells.current.set(cellId, { ...cell, value: value });
-        setEditCell(null);
-        handleResizeGrid();
-        canvasRef.current?.focus();
+    async (value: string, cellId: string) => {
+      const sheet_id = parseInt(sheetId + "");
+      if (isNaN(sheet_id)) return;
+
+      try {
+        const cell = gridCells.current.get(cellId);
+        if (cell) {
+          const isUpdated = await updateSheetCell({
+            sheetId: sheet_id,
+            cellId: cell.id,
+            value,
+          });
+
+          if (isUpdated) {
+            gridCells.current.set(cellId, { ...cell, value: value });
+            setEditCell(null);
+            handleResizeGrid();
+            canvasRef.current?.focus();
+          }
+        }
+      } catch (error) {
+        console.error(error);
       }
     },
-    [handleResizeGrid]
+    [handleResizeGrid, sheetId]
   );
 
   const handleInputKeyDown: React.KeyboardEventHandler<HTMLInputElement> =
@@ -1031,6 +1046,7 @@ export default function Sheet() {
           <input
             ref={inputRef}
             type='text'
+            defaultValue={gridCells.current.get(editCell)?.value ?? ""}
             data-edit-cell={editCell}
             className='relative w-full p-1 h-full text-[13px] font-["Open_Sans"] outline-none'
             aria-label={`Edit cell ${editCell}`}

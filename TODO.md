@@ -10,8 +10,8 @@
 ## Frontend
 
 - [x] Add sheets List
-- [ ] Add sheet create, duplicate, rename and delete handling
-- [ ] Connect mutations to sheet
+- [x] Add sheet create, duplicate, rename and delete handling
+- [x] Connect mutations to sheet
 - [ ] Add basic toolbar and formula engine
 
 ## Formula Engine

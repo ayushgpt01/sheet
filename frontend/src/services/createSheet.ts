@@ -2,7 +2,7 @@ import { BASE_URL } from "@/constants/config";
 import axios from "axios";
 
 export default async function createSheet(params: {
-  name: number;
+  name: string;
   row_count?: number;
   col_count?: number;
 }) {

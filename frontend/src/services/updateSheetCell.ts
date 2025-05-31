@@ -8,12 +8,12 @@ interface Params {
   formula?: string;
 }
 
-export default async function updateSheet({
+export default async function updateSheetCell({
   cellId,
   sheetId,
   ...params
 }: Params) {
-  const { data } = await axios.post(
+  const { data } = await axios.patch(
     `${BASE_URL}/api/sheets/${sheetId}/cell/${cellId}`,
     params
   );

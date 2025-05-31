@@ -36,7 +36,7 @@ async fn get_sheets(
 
     let sheets = sqlx::query_as!(
         SheetItem,
-        "SELECT * from sheets LIMIT $1 OFFSET $2",
+        "SELECT * from sheets ORDER BY id LIMIT $1 OFFSET $2",
         pagination.limit,
         pagination.start
     )
@@ -284,6 +284,8 @@ async fn duplicate_sheet(
                 .push_bind(value)
                 .push_bind(formula);
         });
+
+        cell_qb.build().execute(&mut *tux).await?;
     }
 
     tux.commit().await?;
